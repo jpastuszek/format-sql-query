@@ -2,6 +2,13 @@
 name = "format-sql-query"
 version = "0.1.0"
 authors = ["Jakub Pastuszek <jpastuszek@protonmail.com>"]
+description = "Collection of types and helpers for building hopefully correctly escaped SQL queries"
+repository = "https://github.com/jpastuszek/format-sql-query"
+documentation = "https://docs.rs/format-sql-query"
+readme = "README.md"
+keywords = ["sql", "escape"]
+categories = ["database"]
+license = "MIT"
 edition = "2018"
 
 [dependencies]

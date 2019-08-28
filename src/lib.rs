@@ -1,10 +1,21 @@
 /*!
- * Collection of types and helpers for building hopefully correctly escaped SQL queries.
+Collection of types and helpers for building hopefully correctly escaped SQL queries.
+
+Example usage
+=============
+
+```rust
+use format_sql_query::*;
+
+println!("SELECT {} FROM {} WHERE {} = {}", Column("foo bar".into()), Table::with_schema("foo", "baz"), Column("blah".into()), QuotedData("hello 'world' foo"));
+// SELECT "foo bar" FROM foo.baz WHERE blah = 'hello ''world'' foo'
+```
  */
 use std::fmt;
 use itertools::Itertools;
 
 /// Object like table, schema, column etc.
+///
 /// Escaping rules:
 /// * as is if does not contain " or space
 /// * put in " and escape " with ""
@@ -37,7 +48,8 @@ impl fmt::Display for Object<'_> {
     }
 }
 
-/// Strings and other data in single quotes
+/// Strings and other data in single quotes.
+///
 /// Escaping rules:
 /// * put in ' and escape ' with ''
 /// * escape / with //
@@ -69,6 +81,7 @@ impl fmt::Display for QuotedData<'_> {
     }
 }
 
+/// Wrapper around `QuotedData` that maps its content.
 pub struct MapQuotedData<'i, F>(pub &'i str, F);
 
 impl<'i, F> fmt::Display for MapQuotedData<'i, F> where F: Fn(&'i str) -> String {
@@ -78,6 +91,7 @@ impl<'i, F> fmt::Display for MapQuotedData<'i, F> where F: Fn(&'i str) -> String
     }
 }
 
+/// Represents table name with optional schema.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Table<'i> {
     pub schema: Option<Object<'i>>,
@@ -110,6 +124,7 @@ impl fmt::Display for Table<'_> {
     }
 }
 
+/// Represents table column name.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Column<'i>(pub Object<'i>);
 
