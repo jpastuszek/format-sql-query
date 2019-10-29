@@ -11,8 +11,11 @@ println!("SELECT {} FROM {} WHERE {} = {}", Column("foo bar".into()), Table::wit
 // SELECT "foo bar" FROM foo.baz WHERE blah = 'hello ''world'' foo'
 ```
  */
-use std::fmt;
 use itertools::Itertools;
+use std::fmt;
+
+mod predicates;
+pub use predicates::*;
 
 /// Object like table, schema, column etc.
 ///
@@ -32,7 +35,7 @@ impl fmt::Display for Object<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.0.contains("'") || self.0.contains("\\") {
             // MonetDB does not like ' or \ in column names
-            return Err(fmt::Error)
+            return Err(fmt::Error);
         }
 
         if self.0.contains(" ") || self.0.contains("\"") {
@@ -63,7 +66,10 @@ impl<'i> From<&'i str> for QuotedData<'i> {
 }
 
 impl<'i> QuotedData<'i> {
-    pub fn map<F>(self, f: F) -> MapQuotedData<'i, F> where F: Fn(&'i str) -> String {
+    pub fn map<F>(self, f: F) -> MapQuotedData<'i, F>
+    where
+        F: Fn(&'i str) -> String,
+    {
         MapQuotedData(self.0, f)
     }
 }
@@ -84,7 +90,10 @@ impl fmt::Display for QuotedData<'_> {
 /// Wrapper around `QuotedData` that maps its content.
 pub struct MapQuotedData<'i, F>(pub &'i str, F);
 
-impl<'i, F> fmt::Display for MapQuotedData<'i, F> where F: Fn(&'i str) -> String {
+impl<'i, F> fmt::Display for MapQuotedData<'i, F>
+where
+    F: Fn(&'i str) -> String,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let data = self.1(self.0);
         write!(f, "{}", QuotedData(&data))
@@ -154,7 +163,13 @@ mod tests {
     fn it_works() {
         assert_eq!(
             r#"SELECT "foo bar" FROM foo.baz WHERE blah = 'hello ''world'' foo'"#,
-            &format!("SELECT {} FROM {} WHERE {} = {}", Column("foo bar".into()), Table::with_schema("foo", "baz"), Column("blah".into()), QuotedData("hello 'world' foo"))
+            &format!(
+                "SELECT {} FROM {} WHERE {} = {}",
+                Column("foo bar".into()),
+                Table::with_schema("foo", "baz"),
+                Column("blah".into()),
+                QuotedData("hello 'world' foo")
+            )
         )
     }
 }
