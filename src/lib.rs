@@ -146,6 +146,13 @@ impl<'i> Table<'i> {
             table: table.into(),
         }
     }
+
+    pub fn and_schema(self, schema: impl Into<Schema<'i>>) -> Table<'i> {
+        Table {
+            schema: Some(schema.into()),
+            table: self.table,
+        }
+    }
 }
 
 impl<'i, T> From<T> for Table<'i> where T: Into<Object<'i>> {
