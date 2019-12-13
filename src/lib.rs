@@ -103,15 +103,37 @@ where
     }
 }
 
+/// Represents database schema name.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Schema<'i>(pub Object<'i>);
+
+impl<'i, O> From<O> for Schema<'i> where O: Into<Object<'i>> {
+    fn from(value: O) -> Schema<'i> {
+        Schema(value.into())
+    }
+}
+
+impl fmt::Display for Schema<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl<'i> Schema<'i> {
+    pub fn new(name: impl Into<Object<'i>>) -> Schema<'i> {
+        Schema(name.into())
+    }
+}
+
 /// Represents table name with optional schema.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Table<'i> {
-    pub schema: Option<Object<'i>>,
+    pub schema: Option<Schema<'i>>,
     pub table: Object<'i>,
 }
 
 impl<'i> Table<'i> {
-    pub fn with_schema(schema: impl Into<Object<'i>>, table: impl Into<Object<'i>>) -> Table<'i> {
+    pub fn with_schema(schema: impl Into<Schema<'i>>, table: impl Into<Object<'i>>) -> Table<'i> {
         Table {
             schema: Some(schema.into()),
             table: table.into(),
@@ -135,7 +157,7 @@ impl<'i, T> From<T> for Table<'i> where T: Into<Object<'i>> {
     }
 }
 
-impl<'i, S, T> From<(S, T)> for Table<'i> where S: Into<Object<'i>>, T: Into<Object<'i>> {
+impl<'i, S, T> From<(S, T)> for Table<'i> where S: Into<Schema<'i>>, T: Into<Object<'i>> {
     fn from((schema, table): (S, T)) -> Table<'i> {
         Table {
             schema: Some(schema.into()),
