@@ -13,6 +13,7 @@ println!("SELECT {} FROM {} WHERE {} = {}", Column("foo bar".into()), Table::wit
  */
 use itertools::Itertools;
 use std::fmt;
+use std::marker::PhantomData;
 
 mod predicates;
 pub use predicates::*;
@@ -177,37 +178,25 @@ impl<'i> Column<'i> {
 
 /// Represents table column name.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ColumnType(pub Object<'static>);
+pub struct ColumnType<D: Dialect>(pub Object<'static>, PhantomData<D>);
 
-impl fmt::Display for ColumnType {
+impl<D: Dialect> fmt::Display for ColumnType<D> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl<O> From<O> for ColumnType where O: Into<Object<'static>> {
-    fn from(sql_type: O) -> ColumnType {
-        ColumnType(sql_type.into())
-    }
-}
-
-impl ColumnType {
-    pub fn new(sql_type: impl Into<Object<'static>>) -> ColumnType {
-        ColumnType(sql_type.into())
-    }
-}
-
 /// Represents table column name.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ColumnSchema<'i>(pub Column<'i>, pub ColumnType);
+pub struct ColumnSchema<'i, D: Dialect>(pub Column<'i>, pub ColumnType<D>);
 
-impl<'i, C, CT> From<(C, CT)> for ColumnSchema<'i> where C: Into<Column<'i>>, CT: Into<ColumnType> {
-    fn from((column_name, column_type): (C, CT)) -> ColumnSchema<'i> {
-        ColumnSchema(column_name.into(), column_type.into())
+impl<'i, D, C> From<(C, ColumnType<D>)> for ColumnSchema<'i, D> where D: Dialect, C: Into<Column<'i>> {
+    fn from((column_name, column_type): (C, ColumnType<D>)) -> ColumnSchema<'i, D> {
+        ColumnSchema(column_name.into(), column_type)
     }
 }
 
-impl fmt::Display for ColumnSchema<'_> {
+impl<D: Dialect> fmt::Display for ColumnSchema<'_, D> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}", self.0, self.1)
     }

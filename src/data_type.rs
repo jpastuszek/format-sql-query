@@ -1,17 +1,18 @@
+use std::marker::PhantomData;
 use crate::ColumnType;
 
 pub trait Dialect {}
 
 pub trait SqlDataType<D: Dialect> {
-    fn sql_type() -> ColumnType;
+    fn sql_type() -> ColumnType<D>;
 }
 
 #[macro_export]
 macro_rules! impl_sql_data_type {
     ($dialect:ty, $t:ty, $sql_t:literal) => {
         impl SqlDataType<$dialect> for $t {
-            fn sql_type() -> ColumnType {
-                $sql_t.into()
+            fn sql_type() -> ColumnType<$dialect> {
+                ColumnType($sql_t.into(), PhantomData)
             }
         }
     }
