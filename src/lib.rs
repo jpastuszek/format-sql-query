@@ -16,6 +16,8 @@ use std::fmt;
 
 mod predicates;
 pub use predicates::*;
+mod data_type;
+pub use data_type::*;
 
 /// Object like table, schema, column etc.
 ///
@@ -123,6 +125,24 @@ impl<'i> Table<'i> {
     }
 }
 
+impl<'i, T> From<T> for Table<'i> where T: Into<Object<'i>> {
+    fn from(table: T) -> Table<'i> {
+        Table {
+            schema: None,
+            table: table.into(),
+        }
+    }
+}
+
+impl<'i, S, T> From<(S, T)> for Table<'i> where S: Into<Object<'i>>, T: Into<Object<'i>> {
+    fn from((schema, table): (S, T)) -> Table<'i> {
+        Table {
+            schema: Some(schema.into()),
+            table: table.into(),
+        }
+    }
+}
+
 impl fmt::Display for Table<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(schema) = self.schema {
@@ -137,8 +157,8 @@ impl fmt::Display for Table<'_> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Column<'i>(pub Object<'i>);
 
-impl<'i> From<&'i str> for Column<'i> {
-    fn from(value: &'i str) -> Column<'i> {
+impl<'i, O> From<O> for Column<'i> where O: Into<Object<'i>> {
+    fn from(value: O) -> Column<'i> {
         Column(value.into())
     }
 }
@@ -155,12 +175,50 @@ impl<'i> Column<'i> {
     }
 }
 
+/// Represents table column name.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ColumnType(pub Object<'static>);
+
+impl fmt::Display for ColumnType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl<O> From<O> for ColumnType where O: Into<Object<'static>> {
+    fn from(sql_type: O) -> ColumnType {
+        ColumnType(sql_type.into())
+    }
+}
+
+impl ColumnType {
+    pub fn new(sql_type: impl Into<Object<'static>>) -> ColumnType {
+        ColumnType(sql_type.into())
+    }
+}
+
+/// Represents table column name.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ColumnSchema<'i>(pub Column<'i>, pub ColumnType);
+
+impl<'i, C, CT> From<(C, CT)> for ColumnSchema<'i> where C: Into<Column<'i>>, CT: Into<ColumnType> {
+    fn from((column_name, column_type): (C, CT)) -> ColumnSchema<'i> {
+        ColumnSchema(column_name.into(), column_type.into())
+    }
+}
+
+impl fmt::Display for ColumnSchema<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} {}", self.0, self.1)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
+    fn build_select() {
         assert_eq!(
             r#"SELECT "foo bar" FROM foo.baz WHERE blah = 'hello ''world'' foo'"#,
             &format!(
