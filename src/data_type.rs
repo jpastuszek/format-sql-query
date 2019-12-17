@@ -28,7 +28,7 @@ impl_sql_data_type!(SqlServerDialect, i32, "INT");
 impl_sql_data_type!(SqlServerDialect, i64, "BIGINT");
 impl_sql_data_type!(SqlServerDialect, f32, "REAL");
 impl_sql_data_type!(SqlServerDialect, f64, "FLOAT");
-impl_sql_data_type!(SqlServerDialect, String, "NVARCHAR");
+impl_sql_data_type!(SqlServerDialect, String, "NVARCHAR(4000)");
 
 pub struct MonetDbDialect;
 impl Dialect for MonetDbDialect {}
