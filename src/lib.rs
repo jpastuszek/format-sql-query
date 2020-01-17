@@ -209,6 +209,12 @@ impl<'i> Column<'i> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ColumnType<D: Dialect>(pub Object<'static>, PhantomData<D>);
 
+impl<D, O> From<O> for ColumnType<D> where D: Dialect, O: Into<Object<'static>> {
+    fn from(column_type: O) -> ColumnType<D> {
+        ColumnType(column_type.into(), PhantomData)
+    }
+}
+
 impl<D: Dialect> fmt::Display for ColumnType<D> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
