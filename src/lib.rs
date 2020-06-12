@@ -99,7 +99,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let data = self.1(self.0);
-        write!(f, "{}", QuotedData(&data))
+        QuotedData(&data).fmt(f)
     }
 }
 
@@ -115,7 +115,7 @@ impl<'i, O> From<O> for Schema<'i> where O: Into<Object<'i>> {
 
 impl fmt::Display for Schema<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+        self.0.fmt(f)
     }
 }
 
@@ -149,7 +149,7 @@ impl<'i, S, T> From<(S, T)> for SchemaTable<'i> where S: Into<Schema<'i>>, T: In
 
 impl fmt::Display for SchemaTable<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", Object(&format!("{}.{}", self.schema.0, self.table.0)))
+        Object(&format!("{}.{}", self.schema.0, self.table.0)).fmt(f)
     }
 }
 
@@ -175,7 +175,7 @@ impl<'i, T> From<T> for Table<'i> where T: Into<Object<'i>> {
 
 impl fmt::Display for Table<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+        self.0.fmt(f)
     }
 }
 
@@ -191,7 +191,7 @@ impl<'i, O> From<O> for Column<'i> where O: Into<Object<'i>> {
 
 impl fmt::Display for Column<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+        self.0.fmt(f)
     }
 }
 
@@ -213,7 +213,7 @@ impl<D, O> From<O> for ColumnType<D> where D: Dialect, O: Into<Object<'static>> 
 
 impl<D: Dialect> fmt::Display for ColumnType<D> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+        self.0.fmt(f)
     }
 }
 
