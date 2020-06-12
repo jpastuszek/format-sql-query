@@ -7,7 +7,7 @@ Example usage
 ```rust
 use format_sql_query::*;
 
-println!("SELECT {} FROM {} WHERE {} = {}", Column("foo bar".into()), Table::with_schema("foo", "baz"), Column("blah".into()), QuotedData("hello 'world' foo"));
+println!("SELECT {} FROM {} WHERE {} = {}", Column("foo bar".into()), SchemaTable::new("foo", "baz"), Column("blah".into()), QuotedData("hello 'world' foo"));
 // SELECT "foo bar" FROM foo.baz WHERE blah = 'hello ''world'' foo'
 ```
  */
@@ -125,61 +125,57 @@ impl<'i> Schema<'i> {
     }
 }
 
-/// Represents table name with optional schema.
+/// Represents table name in a schema.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Table<'i> {
-    pub schema: Option<Schema<'i>>,
-    pub table: Object<'i>,
+pub struct SchemaTable<'i> {
+    pub schema: Schema<'i>,
+    pub table: Table<'i>,
 }
 
+impl<'i> SchemaTable<'i> {
+    pub fn new(schema: impl Into<Schema<'i>>, table: impl Into<Table<'i>>) -> SchemaTable<'i> {
+        SchemaTable {
+            schema: schema.into(),
+            table: table.into(),
+        }
+    }
+}
+
+impl<'i, S, T> From<(S, T)> for SchemaTable<'i> where S: Into<Schema<'i>>, T: Into<Table<'i>> {
+    fn from((schema, table): (S, T)) -> SchemaTable<'i> {
+        SchemaTable::new(schema, table)
+    }
+}
+
+impl fmt::Display for SchemaTable<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", Object(&format!("{}.{}", self.schema.0, self.table.0)))
+    }
+}
+
+/// Represents table name.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Table<'i>(Object<'i>);
+
 impl<'i> Table<'i> {
-    pub fn with_schema(schema: impl Into<Schema<'i>>, table: impl Into<Object<'i>>) -> Table<'i> {
-        Table {
-            schema: Some(schema.into()),
-            table: table.into(),
-        }
-    }
-
     pub fn new(table: impl Into<Object<'i>>) -> Table<'i> {
-        Table {
-            schema: None,
-            table: table.into(),
-        }
+        Table(table.into())
     }
 
-    pub fn and_schema(self, schema: impl Into<Schema<'i>>) -> Table<'i> {
-        Table {
-            schema: Some(schema.into()),
-            table: self.table,
-        }
+    pub fn with_schema(self, schema: impl Into<Schema<'i>>) -> SchemaTable<'i> {
+        SchemaTable::new(schema.into(), self)
     }
 }
 
 impl<'i, T> From<T> for Table<'i> where T: Into<Object<'i>> {
     fn from(table: T) -> Table<'i> {
-        Table {
-            schema: None,
-            table: table.into(),
-        }
-    }
-}
-
-impl<'i, S, T> From<(S, T)> for Table<'i> where S: Into<Schema<'i>>, T: Into<Object<'i>> {
-    fn from((schema, table): (S, T)) -> Table<'i> {
-        Table {
-            schema: Some(schema.into()),
-            table: table.into(),
-        }
+        Table::new(table)
     }
 }
 
 impl fmt::Display for Table<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(schema) = self.schema {
-            write!(f, "{}", Object(&format!("{}.{}", schema.0, self.table.0)))
-        } else {
-            write!(f, "{}", self.table)
-        }
+        write!(f, "{}", self.0)
     }
 }
 
@@ -248,7 +244,7 @@ mod tests {
             &format!(
                 "SELECT {} FROM {} WHERE {} = {}",
                 Column("foo bar".into()),
-                Table::with_schema("foo", "baz"),
+                SchemaTable::new("foo", "baz"),
                 Column("blah".into()),
                 QuotedData("hello 'world' foo")
             )
