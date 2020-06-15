@@ -36,8 +36,8 @@ pub use data_type::*;
 /// Object like table, schema, column etc.
 ///
 /// Escaping rules:
-/// * as is if does not contain " or space
-/// * put in " and escape " with ""
+/// * as-is, if does not contain " or space
+/// * surround " and escape " with ""
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Object<'i>(pub &'i str);
 
@@ -60,23 +60,36 @@ impl<'i> From<&'i str> for Object<'i> {
 
 impl fmt::Display for Object<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.0.contains("'") || self.0.contains("\\") {
+        ObjectConcat(&[self.0]).fmt(f)
+    }
+}
+
+/// Concatenation of strings with `Object`s escaping rules.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ObjectConcat<'i>(pub &'i [&'i str]);
+
+impl fmt::Display for ObjectConcat<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.0.iter().any(|o| o.contains("'") || o.contains("\\")) {
             // MonetDB does not like ' or \ in column names
             return Err(fmt::Error);
         }
 
-        if self.0.contains(" ") || self.0.contains("\"") {
+        if self.0.iter().any(|o| o.contains(" ") || o.contains("\"")) {
             f.write_str("\"")?;
-            for part in self.0.split("\"").intersperse("\"\"") {
+            for part in self.0.iter().flat_map(|o| o.split("\"").intersperse("\"\"")) {
                 f.write_str(part)?;
             }
             f.write_str("\"")?;
         } else {
-            f.write_str(self.0)?;
+            for o in self.0.iter() {
+                f.write_str(o)?;
+            }
         }
         Ok(())
     }
 }
+
 
 /// Strings and other data in single quotes.
 ///
@@ -159,34 +172,6 @@ impl fmt::Display for Schema<'_> {
     }
 }
 
-/// Represents table name in a schema.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SchemaTable<'i> {
-    pub schema: Schema<'i>,
-    pub table: Table<'i>,
-}
-
-impl<'i> SchemaTable<'i> {
-    pub fn new(schema: impl Into<Schema<'i>>, table: impl Into<Table<'i>>) -> SchemaTable<'i> {
-        SchemaTable {
-            schema: schema.into(),
-            table: table.into(),
-        }
-    }
-}
-
-impl<'i, S, T> From<(S, T)> for SchemaTable<'i> where S: Into<Schema<'i>>, T: Into<Table<'i>> {
-    fn from((schema, table): (S, T)) -> SchemaTable<'i> {
-        SchemaTable::new(schema, table)
-    }
-}
-
-impl fmt::Display for SchemaTable<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        Object(&format!("{}.{}", self.schema.0, self.table.0)).fmt(f)
-    }
-}
-
 /// Represents table name.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Table<'i>(Object<'i>);
@@ -215,6 +200,34 @@ impl<'i, T> From<T> for Table<'i> where T: Into<Object<'i>> {
 impl fmt::Display for Table<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+/// Represents table name in a schema.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SchemaTable<'i> {
+    pub schema: Schema<'i>,
+    pub table: Table<'i>,
+}
+
+impl<'i> SchemaTable<'i> {
+    pub fn new(schema: impl Into<Schema<'i>>, table: impl Into<Table<'i>>) -> SchemaTable<'i> {
+        SchemaTable {
+            schema: schema.into(),
+            table: table.into(),
+        }
+    }
+}
+
+impl<'i, S, T> From<(S, T)> for SchemaTable<'i> where S: Into<Schema<'i>>, T: Into<Table<'i>> {
+    fn from((schema, table): (S, T)) -> SchemaTable<'i> {
+        SchemaTable::new(schema, table)
+    }
+}
+
+impl fmt::Display for SchemaTable<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        ObjectConcat(&[self.schema.as_str(), ".", self.table.as_str()]).fmt(f)
     }
 }
 
@@ -316,5 +329,24 @@ mod tests {
                 QuotedData("hello 'world' foo")
             )
         )
+    }
+
+    #[test]
+    fn build_object_concat() {
+        assert_eq!(
+            r#""hello ""world"" foo_""quix""""#,
+            &format!(
+                "{}",
+                ObjectConcat(&[r#"hello "world" foo"#, r#"_"quix""#])
+            )
+        );
+
+        assert_eq!(
+            "foo_bar_baz",
+            &format!(
+                "{}",
+                ObjectConcat(&["foo_", "bar", "_baz"])
+            )
+        );
     }
 }
