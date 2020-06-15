@@ -217,6 +217,17 @@ impl<'i> SchemaTable<'i> {
             table: table.into(),
         }
     }
+
+    pub fn as_array(&self) -> [&str; 3] {
+        [self.schema.as_str(), ".", self.table.as_str()]
+    }
+
+    pub fn display_with_postfix<O>(&'i self, postfix: &'i str, f: impl for<'c> FnOnce(&'c ObjectConcat<'c>) -> O) -> O {
+        let a = self.as_array();
+        let a = [a[0], a[1], a[2], postfix];
+
+        f(&ObjectConcat(&a))
+    }
 }
 
 impl<'i, S, T> From<(S, T)> for SchemaTable<'i> where S: Into<Schema<'i>>, T: Into<Table<'i>> {
@@ -227,7 +238,7 @@ impl<'i, S, T> From<(S, T)> for SchemaTable<'i> where S: Into<Schema<'i>>, T: In
 
 impl fmt::Display for SchemaTable<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        ObjectConcat(&[self.schema.as_str(), ".", self.table.as_str()]).fmt(f)
+        ObjectConcat(&self.as_array()).fmt(f)
     }
 }
 
