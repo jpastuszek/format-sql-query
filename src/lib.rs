@@ -10,6 +10,19 @@ use format_sql_query::*;
 println!("SELECT {} FROM {} WHERE {} = {}", Column("foo bar".into()), SchemaTable::new("foo", "baz"), Column("blah".into()), QuotedData("hello 'world' foo"));
 // SELECT "foo bar" FROM foo.baz WHERE blah = 'hello ''world'' foo'
 ```
+
+Design
+======
+
+Constructiors can be used to build all object using `impl Into<>` for arguments so objects can be easily created form supported types.
+Objects will also implement `From` traits if they are simple wrappers, including tupples.
+This is so explicit conversons are flexible (using `Into`) and implicit conversions are precise.
+
+If type wraps more than one object fields will be named, otherwise new-type patter will be used.
+
+All new-type objects will implement `.as_str()` to get original value.
+All objects will implement `Display` to get escaped and perhaps quoted value that can be used in SQL statement.
+
  */
 use itertools::Itertools;
 use std::fmt;
@@ -28,9 +41,20 @@ pub use data_type::*;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Object<'i>(pub &'i str);
 
+impl<'i> Object<'i> {
+    pub fn new(obj: impl Into<&'i str>) -> Object<'i> {
+        Object(obj.into())
+    }
+
+    /// Gets original value.
+    pub fn as_str(&self) -> &str {
+        self.0
+    }
+}
+
 impl<'i> From<&'i str> for Object<'i> {
     fn from(value: &'i str) -> Object<'i> {
-        Object(value)
+        Object::new(value)
     }
 }
 
@@ -75,6 +99,11 @@ impl<'i> QuotedData<'i> {
     {
         MapQuotedData(self.0, f)
     }
+
+    /// Gets original value.
+    pub fn as_str(&self) -> &str {
+        self.0
+    }
 }
 
 impl fmt::Display for QuotedData<'_> {
@@ -107,6 +136,17 @@ where
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Schema<'i>(pub Object<'i>);
 
+impl<'i> Schema<'i> {
+    pub fn new(name: impl Into<Object<'i>>) -> Schema<'i> {
+        Schema(name.into())
+    }
+
+    /// Gets original value.
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
 impl<'i, O> From<O> for Schema<'i> where O: Into<Object<'i>> {
     fn from(value: O) -> Schema<'i> {
         Schema(value.into())
@@ -116,12 +156,6 @@ impl<'i, O> From<O> for Schema<'i> where O: Into<Object<'i>> {
 impl fmt::Display for Schema<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
-    }
-}
-
-impl<'i> Schema<'i> {
-    pub fn new(name: impl Into<Object<'i>>) -> Schema<'i> {
-        Schema(name.into())
     }
 }
 
@@ -165,6 +199,11 @@ impl<'i> Table<'i> {
     pub fn with_schema(self, schema: impl Into<Schema<'i>>) -> SchemaTable<'i> {
         SchemaTable::new(schema.into(), self)
     }
+
+    /// Gets original value.
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
 }
 
 impl<'i, T> From<T> for Table<'i> where T: Into<Object<'i>> {
@@ -183,9 +222,20 @@ impl fmt::Display for Table<'_> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Column<'i>(pub Object<'i>);
 
-impl<'i, O> From<O> for Column<'i> where O: Into<Object<'i>> {
-    fn from(value: O) -> Column<'i> {
-        Column(value.into())
+impl<'i> Column<'i> {
+    pub fn new(name: impl Into<Object<'i>>) -> Column<'i> {
+        Column(name.into())
+    }
+
+    /// Gets original value.
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl<'i> From<Object<'i>> for Column<'i> {
+    fn from(value: Object<'i>) -> Column<'i> {
+        Column::new(value)
     }
 }
 
@@ -195,19 +245,24 @@ impl fmt::Display for Column<'_> {
     }
 }
 
-impl<'i> Column<'i> {
-    pub fn new(name: impl Into<Object<'i>>) -> Column<'i> {
-        Column(name.into())
-    }
-}
-
 /// Represents table column name.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ColumnType<D: Dialect>(pub Object<'static>, PhantomData<D>);
 
-impl<D, O> From<O> for ColumnType<D> where D: Dialect, O: Into<Object<'static>> {
-    fn from(column_type: O) -> ColumnType<D> {
+impl<D: Dialect> ColumnType<D> {
+    pub fn new(column_type: impl Into<Object<'static>>) -> ColumnType<D> {
         ColumnType(column_type.into(), PhantomData)
+    }
+
+    /// Gets original value.
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl<D> From<Object<'static>> for ColumnType<D> where D: Dialect {
+    fn from(column_type: Object<'static>) -> ColumnType<D> {
+        ColumnType::new(column_type)
     }
 }
 
@@ -219,17 +274,29 @@ impl<D: Dialect> fmt::Display for ColumnType<D> {
 
 /// Represents table column name.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ColumnSchema<'i, D: Dialect>(pub Column<'i>, pub ColumnType<D>);
+pub struct ColumnSchema<'i, D: Dialect> {
+    pub name: Column<'i>,
+    pub r#type: ColumnType<D>,
+}
 
-impl<'i, D, C> From<(C, ColumnType<D>)> for ColumnSchema<'i, D> where D: Dialect, C: Into<Column<'i>> {
-    fn from((column_name, column_type): (C, ColumnType<D>)) -> ColumnSchema<'i, D> {
-        ColumnSchema(column_name.into(), column_type)
+impl<'i, D: Dialect> ColumnSchema<'i, D> {
+    pub fn new(name: impl Into<Column<'i>>, r#type: impl Into<ColumnType<D>>) -> ColumnSchema<'i, D> {
+        ColumnSchema {
+            name: name.into(),
+            r#type: r#type.into(),
+        }
+    }
+}
+
+impl<'i, D: Dialect> From<(Column<'i>, ColumnType<D>)> for ColumnSchema<'i, D> {
+    fn from((name, r#type): (Column<'i>, ColumnType<D>)) -> ColumnSchema<'i, D> {
+        ColumnSchema::new(name, r#type)
     }
 }
 
 impl<D: Dialect> fmt::Display for ColumnSchema<'_, D> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} {}", self.0, self.1)
+        write!(f, "{} {}", self.name, self.r#type)
     }
 }
 
