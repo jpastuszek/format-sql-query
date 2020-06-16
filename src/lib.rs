@@ -23,9 +23,13 @@ If type wraps more than one object fields will be named, otherwise new-type patt
 All new-type objects will implement `.as_str()` to get original value.
 All objects will implement `Display` to get escaped and perhaps quoted value that can be used in SQL statement.
 
+All objects are using base escaping rules:
+* `ObjectConcat` for table names, schemas, columns etc.
+* `QuotedData` for data values
+
  */
 use itertools::Itertools;
-use std::fmt;
+use std::fmt::{self, Display};
 use std::marker::PhantomData;
 
 mod predicates;
@@ -33,38 +37,11 @@ pub use predicates::*;
 mod data_type;
 pub use data_type::*;
 
-/// Object like table, schema, column etc.
+/// Concatenation of strings with object escaping rules.
 ///
 /// Escaping rules:
 /// * as-is, if does not contain " or space
 /// * surround " and escape " with ""
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Object<'i>(pub &'i str);
-
-impl<'i> Object<'i> {
-    pub fn new(obj: impl Into<&'i str>) -> Object<'i> {
-        Object(obj.into())
-    }
-
-    /// Gets original value.
-    pub fn as_str(&self) -> &str {
-        self.0
-    }
-}
-
-impl<'i> From<&'i str> for Object<'i> {
-    fn from(value: &'i str) -> Object<'i> {
-        Object::new(value)
-    }
-}
-
-impl fmt::Display for Object<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        ObjectConcat(&[self.0]).fmt(f)
-    }
-}
-
-/// Concatenation of strings with `Object`s escaping rules.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ObjectConcat<'i>(pub &'i [&'i str]);
 
@@ -90,6 +67,15 @@ impl fmt::Display for ObjectConcat<'_> {
     }
 }
 
+//TODO: reimplement using const generics when stable
+/// Owned variant of `ObjectConcat` to be returned as `impl Display`.
+struct ObjectConcatDisplay<'i>(Box<[&'i str]>);
+
+impl fmt::Display for ObjectConcatDisplay<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        ObjectConcat(&self.0).fmt(f)
+    }
+}
 
 /// Strings and other data in single quotes.
 ///
@@ -145,6 +131,33 @@ where
     }
 }
 
+/// Generic object like table, schema, column etc. based `ObjectConcat` escaping rules.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Object<'i>(pub &'i str);
+
+impl<'i> Object<'i> {
+    pub fn new(obj: impl Into<&'i str>) -> Object<'i> {
+        Object(obj.into())
+    }
+
+    /// Gets original value.
+    pub fn as_str(&self) -> &str {
+        self.0
+    }
+}
+
+impl<'i> From<&'i str> for Object<'i> {
+    fn from(value: &'i str) -> Object<'i> {
+        Object::new(value)
+    }
+}
+
+impl fmt::Display for Object<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        ObjectConcat(&[self.0]).fmt(f)
+    }
+}
+
 /// Represents database schema name.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Schema<'i>(pub Object<'i>);
@@ -185,6 +198,10 @@ impl<'i> Table<'i> {
         SchemaTable::new(schema.into(), self)
     }
 
+    pub fn with_postfix(&'i self, postfix: &'i str) -> impl Display + 'i {
+        ObjectConcatDisplay(Box::new([self.as_str(), postfix]))
+    }
+
     /// Gets original value.
     pub fn as_str(&self) -> &str {
         self.0.as_str()
@@ -218,15 +235,13 @@ impl<'i> SchemaTable<'i> {
         }
     }
 
-    pub fn as_array(&self) -> [&str; 3] {
+    fn as_array(&self) -> [&str; 3] {
         [self.schema.as_str(), ".", self.table.as_str()]
     }
 
-    pub fn display_with_postfix<O>(&'i self, postfix: &'i str, f: impl for<'c> FnOnce(&'c ObjectConcat<'c>) -> O) -> O {
+    pub fn with_postfix(&'i self, postfix: &'i str) -> impl Display + 'i {
         let a = self.as_array();
-        let a = [a[0], a[1], a[2], postfix];
-
-        f(&ObjectConcat(&a))
+        ObjectConcatDisplay(Box::new([a[0], a[1], a[2], postfix]))
     }
 }
 
@@ -331,11 +346,11 @@ mod tests {
     #[test]
     fn build_select() {
         assert_eq!(
-            r#"SELECT "foo bar" FROM foo.baz WHERE blah = 'hello ''world'' foo'"#,
+            r#"SELECT "foo bar" FROM foo.baz_quix WHERE blah = 'hello ''world'' foo'"#,
             &format!(
                 "SELECT {} FROM {} WHERE {} = {}",
                 Column("foo bar".into()),
-                SchemaTable::new("foo", "baz"),
+                SchemaTable::new("foo", "baz").with_postfix("_quix"),
                 Column("blah".into()),
                 QuotedData("hello 'world' foo")
             )
