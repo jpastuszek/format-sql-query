@@ -77,11 +77,38 @@ impl fmt::Display for ObjectConcatDisplay<'_> {
     }
 }
 
-/// Strings and other data in single quotes.
+/// Concatenation of strings with quoted data escaping rules.
 ///
 /// Escaping rules:
 /// * put in ' and escape ' with ''
 /// * escape / with //
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct QuotedDataConcat<'i>(pub &'i [&'i str]);
+
+impl fmt::Display for QuotedDataConcat<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("'")?;
+        for part in self.0.iter().flat_map(|o| o.split("'").intersperse("''")) {
+            for part in part.split("\\").intersperse("\\\\") {
+                f.write_str(part)?;
+            }
+        }
+        f.write_str("'")?;
+        Ok(())
+    }
+}
+
+//TODO: reimplement using const generics when stable
+/// Owned variant of `QuotedDataConcat` to be returned as `impl Display`.
+struct QuotedDataConcatDisplay<'i>(Box<[&'i str]>);
+
+impl fmt::Display for QuotedDataConcatDisplay<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        QuotedDataConcat(&self.0).fmt(f)
+    }
+}
+
+/// Strings and other data in single quotes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct QuotedData<'i>(pub &'i str);
 
@@ -107,14 +134,7 @@ impl<'i> QuotedData<'i> {
 
 impl fmt::Display for QuotedData<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("'")?;
-        for part in self.0.split("'").intersperse("''") {
-            for part in part.split("\\").intersperse("\\\\") {
-                f.write_str(part)?;
-            }
-        }
-        f.write_str("'")?;
-        Ok(())
+        QuotedDataConcat(&[self.0]).fmt(f)
     }
 }
 
@@ -167,6 +187,10 @@ impl<'i> Schema<'i> {
         Schema(name.into())
     }
 
+    pub fn as_quoted_data(&'i self) -> impl Display + 'i {
+        QuotedDataConcatDisplay(Box::new([self.as_str()]))
+    }
+
     /// Gets original value.
     pub fn as_str(&self) -> &str {
         self.0.as_str()
@@ -200,6 +224,14 @@ impl<'i> Table<'i> {
 
     pub fn with_postfix(&'i self, postfix: &'i str) -> impl Display + 'i {
         ObjectConcatDisplay(Box::new([self.as_str(), postfix]))
+    }
+
+    pub fn with_postfix_as_quoted_data(&'i self, postfix: &'i str) -> impl Display + 'i {
+        QuotedDataConcatDisplay(Box::new([self.as_str(), postfix]))
+    }
+
+    pub fn as_quoted_data(&'i self) -> impl Display + 'i {
+        QuotedDataConcatDisplay(Box::new([self.as_str()]))
     }
 
     /// Gets original value.
@@ -242,6 +274,15 @@ impl<'i> SchemaTable<'i> {
     pub fn with_postfix(&'i self, postfix: &'i str) -> impl Display + 'i {
         let a = self.as_array();
         ObjectConcatDisplay(Box::new([a[0], a[1], a[2], postfix]))
+    }
+
+    pub fn with_postfix_as_quoted_data(&'i self, postfix: &'i str) -> impl Display + 'i {
+        let a = self.as_array();
+        QuotedDataConcatDisplay(Box::new([a[0], a[1], a[2], postfix]))
+    }
+
+    pub fn as_quoted_data(&'i self) -> impl Display + 'i {
+        QuotedDataConcatDisplay(Box::new(self.as_array()))
     }
 }
 
