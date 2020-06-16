@@ -69,7 +69,13 @@ impl fmt::Display for ObjectConcat<'_> {
 
 //TODO: reimplement using const generics when stable
 /// Owned variant of `ObjectConcat` to be returned as `impl Display`.
-struct ObjectConcatDisplay<'i>(Box<[&'i str]>);
+pub struct ObjectConcatDisplay<'i>(Box<[&'i str]>);
+
+impl<'i> ObjectConcatDisplay<'i> {
+    pub fn as_quoted_data(self) -> QuotedDataConcatDisplay<'i> {
+        self.into()
+    }
+}
 
 impl fmt::Display for ObjectConcatDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -100,11 +106,17 @@ impl fmt::Display for QuotedDataConcat<'_> {
 
 //TODO: reimplement using const generics when stable
 /// Owned variant of `QuotedDataConcat` to be returned as `impl Display`.
-struct QuotedDataConcatDisplay<'i>(Box<[&'i str]>);
+pub struct QuotedDataConcatDisplay<'i>(Box<[&'i str]>);
 
 impl fmt::Display for QuotedDataConcatDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         QuotedDataConcat(&self.0).fmt(f)
+    }
+}
+
+impl<'i> From<ObjectConcatDisplay<'i>> for QuotedDataConcatDisplay<'i> {
+    fn from(v: ObjectConcatDisplay<'i>) -> QuotedDataConcatDisplay<'i> {
+        QuotedDataConcatDisplay(v.0)
     }
 }
 
@@ -164,6 +176,11 @@ impl<'i> Object<'i> {
     pub fn as_str(&self) -> &str {
         self.0
     }
+
+    /// Gets objecte represented as quoted data.
+    pub fn as_quoted_data(&'i self) -> QuotedDataConcatDisplay<'i> {
+        QuotedDataConcatDisplay(Box::new([self.as_str()]))
+    }
 }
 
 impl<'i> From<&'i str> for Object<'i> {
@@ -187,13 +204,14 @@ impl<'i> Schema<'i> {
         Schema(name.into())
     }
 
-    pub fn as_quoted_data(&'i self) -> impl Display + 'i {
-        QuotedDataConcatDisplay(Box::new([self.as_str()]))
-    }
-
     /// Gets original value.
     pub fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+
+    /// Gets objecte represented as quoted data.
+    pub fn as_quoted_data(&'i self) -> QuotedDataConcatDisplay<'i> {
+        self.0.as_quoted_data()
     }
 }
 
@@ -222,21 +240,18 @@ impl<'i> Table<'i> {
         SchemaTable::new(schema.into(), self)
     }
 
-    pub fn with_postfix(&'i self, postfix: &'i str) -> impl Display + 'i {
+    pub fn with_postfix(&'i self, postfix: &'i str) -> ObjectConcatDisplay<'i> {
         ObjectConcatDisplay(Box::new([self.as_str(), postfix]))
-    }
-
-    pub fn with_postfix_as_quoted_data(&'i self, postfix: &'i str) -> impl Display + 'i {
-        QuotedDataConcatDisplay(Box::new([self.as_str(), postfix]))
-    }
-
-    pub fn as_quoted_data(&'i self) -> impl Display + 'i {
-        QuotedDataConcatDisplay(Box::new([self.as_str()]))
     }
 
     /// Gets original value.
     pub fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+
+    /// Gets objecte represented as quoted data.
+    pub fn as_quoted_data(&'i self) -> QuotedDataConcatDisplay<'i> {
+        self.0.as_quoted_data()
     }
 }
 
@@ -276,12 +291,8 @@ impl<'i> SchemaTable<'i> {
         ObjectConcatDisplay(Box::new([a[0], a[1], a[2], postfix]))
     }
 
-    pub fn with_postfix_as_quoted_data(&'i self, postfix: &'i str) -> impl Display + 'i {
-        let a = self.as_array();
-        QuotedDataConcatDisplay(Box::new([a[0], a[1], a[2], postfix]))
-    }
-
-    pub fn as_quoted_data(&'i self) -> impl Display + 'i {
+    /// Gets objecte represented as quoted data.
+    pub fn as_quoted_data(&'i self) -> QuotedDataConcatDisplay<'i> {
         QuotedDataConcatDisplay(Box::new(self.as_array()))
     }
 }
@@ -310,6 +321,11 @@ impl<'i> Column<'i> {
     /// Gets original value.
     pub fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+
+    /// Gets objecte represented as quoted data.
+    pub fn as_quoted_data(&'i self) -> QuotedDataConcatDisplay<'i> {
+        self.0.as_quoted_data()
     }
 }
 
