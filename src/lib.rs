@@ -244,6 +244,10 @@ impl<'i> Table<'i> {
         ObjectConcatDisplay(Box::new([self.as_str(), postfix]))
     }
 
+    pub fn with_postfix_sep(&'i self, postfix: &'i str, separator: &'i str) -> ObjectConcatDisplay<'i> {
+        ObjectConcatDisplay(Box::new([self.as_str(), separator, postfix]))
+    }
+
     /// Gets original value.
     pub fn as_str(&self) -> &str {
         self.0.as_str()
@@ -289,6 +293,11 @@ impl<'i> SchemaTable<'i> {
     pub fn with_postfix(&'i self, postfix: &'i str) -> impl Display + 'i {
         let a = self.as_array();
         ObjectConcatDisplay(Box::new([a[0], a[1], a[2], postfix]))
+    }
+
+    pub fn with_postfix_sep(&'i self, postfix: &'i str, separator: &'i str) -> ObjectConcatDisplay<'i> {
+        let a = self.as_array();
+        ObjectConcatDisplay(Box::new([a[0], a[1], a[2], separator, postfix]))
     }
 
     /// Gets objecte represented as quoted data.
