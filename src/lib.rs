@@ -42,7 +42,7 @@ pub use data_type::*;
 /// Escaping rules:
 /// * as-is, if does not contain " or space
 /// * surround " and escape " with ""
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ObjectConcat<'i>(pub &'i [&'i str]);
 
 impl fmt::Display for ObjectConcat<'_> {
@@ -88,7 +88,7 @@ impl fmt::Display for ObjectConcatDisplay<'_> {
 /// Escaping rules:
 /// * put in ' and escape ' with ''
 /// * escape / with //
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct QuotedDataConcat<'i>(pub &'i [&'i str]);
 
 impl fmt::Display for QuotedDataConcat<'_> {
@@ -121,7 +121,7 @@ impl<'i> From<ObjectConcatDisplay<'i>> for QuotedDataConcatDisplay<'i> {
 }
 
 /// Strings and other data in single quotes.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct QuotedData<'i>(pub &'i str);
 
 impl<'i> From<&'i str> for QuotedData<'i> {
@@ -164,7 +164,7 @@ where
 }
 
 /// Generic object like table, schema, column etc. based `ObjectConcat` escaping rules.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Object<'i>(pub &'i str);
 
 impl<'i> Object<'i> {
@@ -196,7 +196,7 @@ impl fmt::Display for Object<'_> {
 }
 
 /// Represents database schema name.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Schema<'i>(pub Object<'i>);
 
 impl<'i> Schema<'i> {
@@ -228,7 +228,7 @@ impl fmt::Display for Schema<'_> {
 }
 
 /// Represents table name.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Table<'i>(Object<'i>);
 
 impl<'i> Table<'i> {
@@ -272,7 +272,7 @@ impl fmt::Display for Table<'_> {
 }
 
 /// Represents table name in a schema.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SchemaTable<'i> {
     pub schema: Schema<'i>,
     pub table: Table<'i>,
@@ -319,7 +319,7 @@ impl fmt::Display for SchemaTable<'_> {
 }
 
 /// Represents table column name.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Column<'i>(pub Object<'i>);
 
 impl<'i> Column<'i> {
@@ -351,7 +351,7 @@ impl fmt::Display for Column<'_> {
 }
 
 /// Represents table column name.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ColumnType<D: Dialect>(pub Object<'static>, PhantomData<D>);
 
 impl<D: Dialect> ColumnType<D> {
@@ -378,7 +378,7 @@ impl<D: Dialect> fmt::Display for ColumnType<D> {
 }
 
 /// Represents table column name.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ColumnSchema<'i, D: Dialect> {
     pub name: Column<'i>,
     pub r#type: ColumnType<D>,
