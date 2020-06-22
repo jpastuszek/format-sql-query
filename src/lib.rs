@@ -16,7 +16,7 @@ Design
 
 Constructiors can be used to build all object using `impl Into<>` for arguments so objects can be easily created form supported types.
 Objects will also implement `From` traits if they are simple wrappers, including tupples.
-This is so explicit conversons are flexible (using `Into`) and implicit conversions are precise.
+This is so conversons are flexible and all type can be created from strings.
 
 If type wraps more than one object fields will be named, otherwise new-type patter will be used.
 
@@ -219,7 +219,7 @@ impl<'i> Schema<'i> {
     }
 }
 
-impl<'i, O> From<O> for Schema<'i> where O: Into<Object<'i>> {
+impl<'i, O: Into<Object<'i>> > From<O> for Schema<'i> {
     fn from(value: O) -> Schema<'i> {
         Schema(value.into())
     }
@@ -263,8 +263,8 @@ impl<'i> Table<'i> {
     }
 }
 
-impl<'i, T> From<T> for Table<'i> where T: Into<Object<'i>> {
-    fn from(table: T) -> Table<'i> {
+impl<'i, O: Into<Object<'i>> > From<O> for Table<'i> {
+    fn from(table: O) -> Table<'i> {
         Table::new(table)
     }
 }
@@ -310,7 +310,7 @@ impl<'i> SchemaTable<'i> {
     }
 }
 
-impl<'i, S, T> From<(S, T)> for SchemaTable<'i> where S: Into<Schema<'i>>, T: Into<Table<'i>> {
+impl<'i, S: Into<Schema<'i>>, T: Into<Table<'i>>> From<(S, T)> for SchemaTable<'i> {
     fn from((schema, table): (S, T)) -> SchemaTable<'i> {
         SchemaTable::new(schema, table)
     }
@@ -342,8 +342,8 @@ impl<'i> Column<'i> {
     }
 }
 
-impl<'i> From<Object<'i>> for Column<'i> {
-    fn from(value: Object<'i>) -> Column<'i> {
+impl<'i, O: Into<Object<'i>>> From<O> for Column<'i> {
+    fn from(value: O) -> Column<'i> {
         Column::new(value)
     }
 }
@@ -369,8 +369,8 @@ impl<D: Dialect> ColumnType<D> {
     }
 }
 
-impl<D> From<Object<'static>> for ColumnType<D> where D: Dialect {
-    fn from(column_type: Object<'static>) -> ColumnType<D> {
+impl<D, O: Into<Object<'static>>> From<O> for ColumnType<D> where D: Dialect {
+    fn from(column_type: O) -> ColumnType<D> {
         ColumnType::new(column_type)
     }
 }
@@ -397,8 +397,8 @@ impl<'i, D: Dialect> ColumnSchema<'i, D> {
     }
 }
 
-impl<'i, D: Dialect> From<(Column<'i>, ColumnType<D>)> for ColumnSchema<'i, D> {
-    fn from((name, r#type): (Column<'i>, ColumnType<D>)) -> ColumnSchema<'i, D> {
+impl<'i, D: Dialect, C: Into<Column<'i>>, T: Into<ColumnType<D>>> From<(C, T)> for ColumnSchema<'i, D> {
+    fn from((name, r#type): (C, T)) -> ColumnSchema<'i, D> {
         ColumnSchema::new(name, r#type)
     }
 }
