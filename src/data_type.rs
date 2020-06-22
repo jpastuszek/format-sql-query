@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use crate::ColumnType;
 
-pub trait Dialect {}
+pub trait Dialect: Clone {}
 
 pub trait SqlDataType<D: Dialect> {
     fn sql_type() -> ColumnType<D>;
@@ -18,6 +18,7 @@ macro_rules! impl_sql_data_type {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct SqlServerDialect;
 impl Dialect for SqlServerDialect {}
 
@@ -30,6 +31,7 @@ impl_sql_data_type!(SqlServerDialect, f32, "REAL");
 impl_sql_data_type!(SqlServerDialect, f64, "FLOAT");
 impl_sql_data_type!(SqlServerDialect, String, "NVARCHAR(4000)");
 
+#[derive(Clone, Copy, Debug)]
 pub struct MonetDbDialect;
 impl Dialect for MonetDbDialect {}
 

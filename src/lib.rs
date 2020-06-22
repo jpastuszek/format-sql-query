@@ -120,49 +120,6 @@ impl<'i> From<ObjectConcatDisplay<'i>> for QuotedDataConcatDisplay<'i> {
     }
 }
 
-/// Strings and other data in single quotes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct QuotedData<'i>(pub &'i str);
-
-impl<'i> From<&'i str> for QuotedData<'i> {
-    fn from(value: &'i str) -> QuotedData<'i> {
-        QuotedData(value)
-    }
-}
-
-impl<'i> QuotedData<'i> {
-    pub fn map<F>(self, f: F) -> MapQuotedData<'i, F>
-    where
-        F: Fn(&'i str) -> String,
-    {
-        MapQuotedData(self.0, f)
-    }
-
-    /// Gets original value.
-    pub fn as_str(&self) -> &str {
-        self.0
-    }
-}
-
-impl fmt::Display for QuotedData<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        QuotedDataConcat(&[self.0]).fmt(f)
-    }
-}
-
-/// Wrapper around `QuotedData` that maps its content.
-pub struct MapQuotedData<'i, F>(pub &'i str, F);
-
-impl<'i, F> fmt::Display for MapQuotedData<'i, F>
-where
-    F: Fn(&'i str) -> String,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let data = self.1(self.0);
-        QuotedData(&data).fmt(f)
-    }
-}
-
 /// Generic object like table, schema, column etc. based `ObjectConcat` escaping rules.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Object<'i>(pub &'i str);
@@ -192,6 +149,53 @@ impl<'i> From<&'i str> for Object<'i> {
 impl fmt::Display for Object<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         ObjectConcat(&[self.0]).fmt(f)
+    }
+}
+
+/// Strings and other data in single quotes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct QuotedData<'i>(pub &'i str);
+
+impl<'i> From<&'i str> for QuotedData<'i> {
+    fn from(value: &'i str) -> QuotedData<'i> {
+        QuotedData(value)
+    }
+}
+
+impl<'i> QuotedData<'i> {
+    pub fn new(data: &str) -> QuotedData {
+        QuotedData(data.into())
+    }
+
+    pub fn map<F>(self, f: F) -> MapQuotedData<'i, F>
+    where
+        F: Fn(&'i str) -> String,
+    {
+        MapQuotedData(self.0, f)
+    }
+
+    /// Gets original value.
+    pub fn as_str(&self) -> &str {
+        self.0
+    }
+}
+
+impl fmt::Display for QuotedData<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        QuotedDataConcat(&[self.0]).fmt(f)
+    }
+}
+
+/// Wrapper around `QuotedData` that maps its content.
+pub struct MapQuotedData<'i, F>(pub &'i str, F);
+
+impl<'i, F> fmt::Display for MapQuotedData<'i, F>
+where
+    F: Fn(&'i str) -> String,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let data = self.1(self.0);
+        QuotedData(&data).fmt(f)
     }
 }
 
