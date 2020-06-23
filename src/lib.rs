@@ -14,15 +14,15 @@ println!("SELECT {} FROM {} WHERE {} = {}", Column("foo bar".into()), SchemaTabl
 Design goals
 ============
 
-* All objects will implement `Display` to get escaped and perhaps quoted format that can be directly in SQL statements.
+* All objects will implement `Display` to get escaped and perhaps quoted formatting that can be used directly in SQL statements.
 * Avoid allocations by making most types just wrappers around string slices.
-* New-type patter that is used also to construct object out of strings and other objects.
-* Generous `From` trait implementations to make it easy to construct objects.
+* New-type patter that is used to construct an object out of strings and other objects.
+* Generous `From` trait implementations to make it easy to construct objects from strings.
 * All single field new-type objects will implement `.as_str()` to get original value.
 * Types that are string slice wrappers implement `Copy` to make them easy to use.
 * Types should implement `Eq` and `Ord`.
 * New-type objects with more than one filed should have getters.
-* When returning types make sure they don't reference self but the original string slice.
+* When returning types make sure they don't reference self but the original string slice lifetime.
 
 All objects are using base escaping rules wrappers:
 
@@ -131,7 +131,7 @@ impl<'i> Object<'i> {
         self.0
     }
 
-    /// Gets objecte represented as quoted data.
+    /// Gets object represented as quoted data.
     pub fn as_quoted_data(&self) -> QuotedDataConcatDisplay<'i> {
         QuotedDataConcatDisplay(Box::new([self.as_str()]))
     }
@@ -202,7 +202,7 @@ impl<'i> Schema<'i> {
         self.0.as_str()
     }
 
-    /// Gets objecte represented as quoted data.
+    /// Gets object represented as quoted data.
     pub fn as_quoted_data(&self) -> QuotedDataConcatDisplay<'i> {
         self.0.as_quoted_data()
     }
@@ -220,19 +220,23 @@ impl fmt::Display for Schema<'_> {
     }
 }
 
-/// Represents table name.
+/// Represents database table name.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Table<'i>(pub Object<'i>);
 
 impl<'i> Table<'i> {
+    /// Constructs `SchemaTable` from this table and given schema.
     pub fn with_schema(self, schema: impl Into<Schema<'i>>) -> SchemaTable<'i> {
         SchemaTable(schema.into(), self)
     }
 
+    /// Returns object implementing `Display` to format this table name with given postfix.
     pub fn with_postfix(&self, postfix: &'i str) -> ObjectConcatDisplay<'i> {
         ObjectConcatDisplay(Box::new([self.as_str(), postfix]))
     }
 
+    /// Returns object implementing `Display` to format this table name with given postfix
+    /// separated with given separator.
     pub fn with_postfix_sep(&self, postfix: &'i str, separator: &'i str) -> ObjectConcatDisplay<'i> {
         ObjectConcatDisplay(Box::new([self.as_str(), separator, postfix]))
     }
@@ -242,7 +246,7 @@ impl<'i> Table<'i> {
         self.0.as_str()
     }
 
-    /// Gets objecte represented as quoted data.
+    /// Gets object represented as quoted data.
     pub fn as_quoted_data(&self) -> QuotedDataConcatDisplay<'i> {
         self.0.as_quoted_data()
     }
@@ -279,17 +283,20 @@ impl<'i> SchemaTable<'i> {
         [self.0.as_str(), ".", self.1.as_str()]
     }
 
+    /// Returns object implementing `Display` to format this table name with given postfix.
     pub fn with_postfix(&self, postfix: &'i str) -> impl Display + 'i {
         let a = self.as_array();
         ObjectConcatDisplay(Box::new([a[0], a[1], a[2], postfix]))
     }
 
+    /// Returns object implementing `Display` to format this table name with given postfix
+    /// separated with given separator.
     pub fn with_postfix_sep(&self, postfix: &'i str, separator: &'i str) -> ObjectConcatDisplay<'i> {
         let a = self.as_array();
         ObjectConcatDisplay(Box::new([a[0], a[1], a[2], separator, postfix]))
     }
 
-    /// Gets objecte represented as quoted data.
+    /// Gets object represented as quoted data.
     pub fn as_quoted_data(&self) -> QuotedDataConcatDisplay<'i> {
         QuotedDataConcatDisplay(Box::new(self.as_array()))
     }
@@ -317,7 +324,7 @@ impl<'i> Column<'i> {
         self.0.as_str()
     }
 
-    /// Gets objecte represented as quoted data.
+    /// Gets object represented as quoted data.
     pub fn as_quoted_data(&self) -> QuotedDataConcatDisplay<'i> {
         self.0.as_quoted_data()
     }
@@ -335,7 +342,7 @@ impl fmt::Display for Column<'_> {
     }
 }
 
-/// Represents table column name.
+/// Represents column type for given SQL `Dialect`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ColumnType<D: Dialect>(pub Object<'static>, pub PhantomData<D>);
 
@@ -358,7 +365,7 @@ impl<D: Dialect> fmt::Display for ColumnType<D> {
     }
 }
 
-/// Represents table column name.
+/// Represents column name and type for given SQL `Dialect`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ColumnSchema<'i, D: Dialect>(pub Column<'i>, pub ColumnType<D>);
 

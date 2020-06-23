@@ -1,9 +1,12 @@
 use std::marker::PhantomData;
 use crate::ColumnType;
 
+/// SQL dialect of a database.
 pub trait Dialect: Clone + Copy {}
 
+/// Provide SQL data types in given dialect corresponding to Rust types.
 pub trait SqlDataType<D: Dialect> {
+    /// Gets `ColumnType` for given `Dialect` corresponding to `Self`.
     fn sql_type() -> ColumnType<D>;
 }
 
@@ -18,6 +21,7 @@ macro_rules! impl_sql_data_type {
     }
 }
 
+/// SQL Server SQL dialect.
 #[derive(Clone, Copy, Debug)]
 pub struct SqlServerDialect;
 impl Dialect for SqlServerDialect {}
@@ -31,6 +35,7 @@ impl_sql_data_type!(SqlServerDialect, f32, "REAL");
 impl_sql_data_type!(SqlServerDialect, f64, "FLOAT");
 impl_sql_data_type!(SqlServerDialect, String, "NVARCHAR(4000)");
 
+/// MonetDB SQL dialect.
 #[derive(Clone, Copy, Debug)]
 pub struct MonetDbDialect;
 impl Dialect for MonetDbDialect {}
