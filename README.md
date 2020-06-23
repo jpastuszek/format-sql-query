@@ -8,7 +8,7 @@ Example usage
 ```rust
 use format_sql_query::*;
 
-println!("SELECT {} FROM {} WHERE {} = {}", Column("foo bar".into()), Table::with_schema("foo", "baz"), Column("blah".into()), QuotedData("hello 'world' foo"));
+println!("SELECT {} FROM {} WHERE {} = {}", Column("foo bar".into()), SchemaTable("foo".into(), "baz".into()), Column("blah".into()), QuotedData("hello 'world' foo"));
 // SELECT "foo bar" FROM foo.baz WHERE blah = 'hello ''world'' foo'
 ```
 

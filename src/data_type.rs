@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use crate::ColumnType;
 
-pub trait Dialect: Clone {}
+pub trait Dialect: Clone + Copy {}
 
 pub trait SqlDataType<D: Dialect> {
     fn sql_type() -> ColumnType<D>;

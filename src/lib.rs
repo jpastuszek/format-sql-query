@@ -7,7 +7,7 @@ Example usage
 ```rust
 use format_sql_query::*;
 
-println!("SELECT {} FROM {} WHERE {} = {}", Column("foo bar".into()), SchemaTable::new("foo", "baz"), Column("blah".into()), QuotedData("hello 'world' foo"));
+println!("SELECT {} FROM {} WHERE {} = {}", Column("foo bar".into()), SchemaTable("foo".into(), "baz".into()), Column("blah".into()), QuotedData("hello 'world' foo"));
 // SELECT "foo bar" FROM foo.baz WHERE blah = 'hello ''world'' foo'
 ```
 
@@ -16,9 +16,13 @@ Design goals
 
 * All objects will implement `Display` to get escaped and perhaps quoted format that can be directly in SQL statements.
 * Avoid allocations by making most types just wrappers around string slices.
-* Generous use of `impl Into<>` for constructor arguments and `From` trait implementations to make it easy to construct objects.
-* New-type patter is used unless multiple fields are required.
-* All new-type objects will implement `.as_str()` to get original value.
+* New-type patter that is used also to construct object out of strings and other objects.
+* Generous `From` trait implementations to make it easy to construct objects.
+* All single field new-type objects will implement `.as_str()` to get original value.
+* Types that are string slice wrappers implement `Copy` to make them easy to use.
+* Types should implement `Eq` and `Ord`.
+* New-type objects with more than one filed should have getters.
+* When returning types make sure they don't reference self but the original string slice.
 
 All objects are using base escaping rules wrappers:
 
@@ -122,24 +126,20 @@ impl<'i> From<ObjectConcatDisplay<'i>> for QuotedDataConcatDisplay<'i> {
 pub struct Object<'i>(pub &'i str);
 
 impl<'i> Object<'i> {
-    pub fn new(obj: impl Into<&'i str>) -> Object<'i> {
-        Object(obj.into())
-    }
-
     /// Gets original value.
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &'i str {
         self.0
     }
 
     /// Gets objecte represented as quoted data.
-    pub fn as_quoted_data(&'i self) -> QuotedDataConcatDisplay<'i> {
+    pub fn as_quoted_data(&self) -> QuotedDataConcatDisplay<'i> {
         QuotedDataConcatDisplay(Box::new([self.as_str()]))
     }
 }
 
 impl<'i> From<&'i str> for Object<'i> {
     fn from(value: &'i str) -> Object<'i> {
-        Object::new(value)
+        Object(value.into())
     }
 }
 
@@ -160,10 +160,6 @@ impl<'i> From<&'i str> for QuotedData<'i> {
 }
 
 impl<'i> QuotedData<'i> {
-    pub fn new(data: &str) -> QuotedData {
-        QuotedData(data.into())
-    }
-
     pub fn map<F>(self, f: F) -> MapQuotedData<'i, F>
     where
         F: Fn(&'i str) -> String,
@@ -172,7 +168,7 @@ impl<'i> QuotedData<'i> {
     }
 
     /// Gets original value.
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &'i str {
         self.0
     }
 }
@@ -184,7 +180,7 @@ impl fmt::Display for QuotedData<'_> {
 }
 
 /// Wrapper around `QuotedData` that maps its content.
-pub struct MapQuotedData<'i, F>(pub &'i str, F);
+pub struct MapQuotedData<'i, F>(&'i str, F);
 
 impl<'i, F> fmt::Display for MapQuotedData<'i, F>
 where
@@ -201,17 +197,13 @@ where
 pub struct Schema<'i>(pub Object<'i>);
 
 impl<'i> Schema<'i> {
-    pub fn new(name: impl Into<Object<'i>>) -> Schema<'i> {
-        Schema(name.into())
-    }
-
     /// Gets original value.
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &'i str {
         self.0.as_str()
     }
 
     /// Gets objecte represented as quoted data.
-    pub fn as_quoted_data(&'i self) -> QuotedDataConcatDisplay<'i> {
+    pub fn as_quoted_data(&self) -> QuotedDataConcatDisplay<'i> {
         self.0.as_quoted_data()
     }
 }
@@ -233,36 +225,32 @@ impl fmt::Display for Schema<'_> {
 pub struct Table<'i>(pub Object<'i>);
 
 impl<'i> Table<'i> {
-    pub fn new(table: impl Into<Object<'i>>) -> Table<'i> {
-        Table(table.into())
-    }
-
     pub fn with_schema(self, schema: impl Into<Schema<'i>>) -> SchemaTable<'i> {
-        SchemaTable::new(schema.into(), self)
+        SchemaTable(schema.into(), self)
     }
 
-    pub fn with_postfix(&'i self, postfix: &'i str) -> ObjectConcatDisplay<'i> {
+    pub fn with_postfix(&self, postfix: &'i str) -> ObjectConcatDisplay<'i> {
         ObjectConcatDisplay(Box::new([self.as_str(), postfix]))
     }
 
-    pub fn with_postfix_sep(&'i self, postfix: &'i str, separator: &'i str) -> ObjectConcatDisplay<'i> {
+    pub fn with_postfix_sep(&self, postfix: &'i str, separator: &'i str) -> ObjectConcatDisplay<'i> {
         ObjectConcatDisplay(Box::new([self.as_str(), separator, postfix]))
     }
 
     /// Gets original value.
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &'i str {
         self.0.as_str()
     }
 
     /// Gets objecte represented as quoted data.
-    pub fn as_quoted_data(&'i self) -> QuotedDataConcatDisplay<'i> {
+    pub fn as_quoted_data(&self) -> QuotedDataConcatDisplay<'i> {
         self.0.as_quoted_data()
     }
 }
 
 impl<'i, O: Into<Object<'i>> > From<O> for Table<'i> {
     fn from(table: O) -> Table<'i> {
-        Table::new(table)
+        Table(table.into())
     }
 }
 
@@ -274,42 +262,42 @@ impl fmt::Display for Table<'_> {
 
 /// Represents table name in a schema.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct SchemaTable<'i> {
-    pub schema: Schema<'i>,
-    pub table: Table<'i>,
-}
+pub struct SchemaTable<'i>(pub Schema<'i>, pub Table<'i>);
 
 impl<'i> SchemaTable<'i> {
-    pub fn new(schema: impl Into<Schema<'i>>, table: impl Into<Table<'i>>) -> SchemaTable<'i> {
-        SchemaTable {
-            schema: schema.into(),
-            table: table.into(),
-        }
+    /// Gets `Schema` part
+    pub fn schema(&self) -> Schema<'i> {
+        self.0
     }
 
-    fn as_array(&self) -> [&str; 3] {
-        [self.schema.as_str(), ".", self.table.as_str()]
+    /// Gets `Table` part
+    pub fn table(&self) -> Table<'i> {
+        self.1
     }
 
-    pub fn with_postfix(&'i self, postfix: &'i str) -> impl Display + 'i {
+    fn as_array(&self) -> [&'i str; 3] {
+        [self.0.as_str(), ".", self.1.as_str()]
+    }
+
+    pub fn with_postfix(&self, postfix: &'i str) -> impl Display + 'i {
         let a = self.as_array();
         ObjectConcatDisplay(Box::new([a[0], a[1], a[2], postfix]))
     }
 
-    pub fn with_postfix_sep(&'i self, postfix: &'i str, separator: &'i str) -> ObjectConcatDisplay<'i> {
+    pub fn with_postfix_sep(&self, postfix: &'i str, separator: &'i str) -> ObjectConcatDisplay<'i> {
         let a = self.as_array();
         ObjectConcatDisplay(Box::new([a[0], a[1], a[2], separator, postfix]))
     }
 
     /// Gets objecte represented as quoted data.
-    pub fn as_quoted_data(&'i self) -> QuotedDataConcatDisplay<'i> {
+    pub fn as_quoted_data(&self) -> QuotedDataConcatDisplay<'i> {
         QuotedDataConcatDisplay(Box::new(self.as_array()))
     }
 }
 
 impl<'i, S: Into<Schema<'i>>, T: Into<Table<'i>>> From<(S, T)> for SchemaTable<'i> {
     fn from((schema, table): (S, T)) -> SchemaTable<'i> {
-        SchemaTable::new(schema, table)
+        SchemaTable(schema.into(), table.into())
     }
 }
 
@@ -324,24 +312,20 @@ impl fmt::Display for SchemaTable<'_> {
 pub struct Column<'i>(pub Object<'i>);
 
 impl<'i> Column<'i> {
-    pub fn new(name: impl Into<Object<'i>>) -> Column<'i> {
-        Column(name.into())
-    }
-
     /// Gets original value.
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &'i str {
         self.0.as_str()
     }
 
     /// Gets objecte represented as quoted data.
-    pub fn as_quoted_data(&'i self) -> QuotedDataConcatDisplay<'i> {
+    pub fn as_quoted_data(&self) -> QuotedDataConcatDisplay<'i> {
         self.0.as_quoted_data()
     }
 }
 
 impl<'i, O: Into<Object<'i>>> From<O> for Column<'i> {
     fn from(value: O) -> Column<'i> {
-        Column::new(value)
+        Column(value.into())
     }
 }
 
@@ -356,19 +340,15 @@ impl fmt::Display for Column<'_> {
 pub struct ColumnType<D: Dialect>(pub Object<'static>, pub PhantomData<D>);
 
 impl<D: Dialect> ColumnType<D> {
-    pub fn new(column_type: impl Into<Object<'static>>) -> ColumnType<D> {
-        ColumnType(column_type.into(), PhantomData)
-    }
-
     /// Gets original value.
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &'static str {
         self.0.as_str()
     }
 }
 
 impl<D, O: Into<Object<'static>>> From<O> for ColumnType<D> where D: Dialect {
     fn from(column_type: O) -> ColumnType<D> {
-        ColumnType::new(column_type)
+        ColumnType(column_type.into(), PhantomData)
     }
 }
 
@@ -380,29 +360,29 @@ impl<D: Dialect> fmt::Display for ColumnType<D> {
 
 /// Represents table column name.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ColumnSchema<'i, D: Dialect> {
-    pub name: Column<'i>,
-    pub r#type: ColumnType<D>,
-}
+pub struct ColumnSchema<'i, D: Dialect>(pub Column<'i>, pub ColumnType<D>);
 
 impl<'i, D: Dialect> ColumnSchema<'i, D> {
-    pub fn new(name: impl Into<Column<'i>>, r#type: impl Into<ColumnType<D>>) -> ColumnSchema<'i, D> {
-        ColumnSchema {
-            name: name.into(),
-            r#type: r#type.into(),
-        }
+    /// Gets `Column` part
+    pub fn column(&self) -> &Column<'i> {
+        &self.0
+    }
+
+    /// Gets `ColumnType` part
+    pub fn column_type(&self) -> &ColumnType<D> {
+        &self.1
     }
 }
 
 impl<'i, D: Dialect, C: Into<Column<'i>>, T: Into<ColumnType<D>>> From<(C, T)> for ColumnSchema<'i, D> {
     fn from((name, r#type): (C, T)) -> ColumnSchema<'i, D> {
-        ColumnSchema::new(name, r#type)
+        ColumnSchema(name.into(), r#type.into())
     }
 }
 
 impl<D: Dialect> fmt::Display for ColumnSchema<'_, D> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} {}", self.name, self.r#type)
+        write!(f, "{} {}", self.0, self.1)
     }
 }
 
@@ -417,7 +397,7 @@ mod tests {
             &format!(
                 "SELECT {} FROM {} WHERE {} = {}",
                 Column("foo bar".into()),
-                SchemaTable { schema: "foo".into(), table: "baz".into()}.with_postfix("_quix"),
+                SchemaTable("foo".into(), "baz".into()).with_postfix("_quix"),
                 Column("blah".into()),
                 QuotedData("hello 'world' foo")
             )
