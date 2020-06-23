@@ -1,6 +1,6 @@
 [package]
 name = "format-sql-query"
-version = "0.3.2-alpha.0"
+version = "0.4.0"
 authors = ["Jakub Pastuszek <jpastuszek@protonmail.com>"]
 description = "Collection of types and helpers for building hopefully correctly escaped SQL queries"
 repository = "https://git.sr.ht/~jpastuszek/format-sql-query"
