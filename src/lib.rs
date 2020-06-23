@@ -11,23 +11,20 @@ println!("SELECT {} FROM {} WHERE {} = {}", Column("foo bar".into()), SchemaTabl
 // SELECT "foo bar" FROM foo.baz WHERE blah = 'hello ''world'' foo'
 ```
 
-Design
-======
+Design goals
+============
 
-Constructiors can be used to build all object using `impl Into<>` for arguments so objects can be easily created form supported types.
-Objects will also implement `From` traits if they are simple wrappers, including tupples.
-This is so conversons are flexible and all type can be created from strings.
+* All objects will implement `Display` to get escaped and perhaps quoted format that can be directly in SQL statements.
+* Avoid allocations by making most types just wrappers around string slices.
+* Generous use of `impl Into<>` for constructor arguments and `From` trait implementations to make it easy to construct objects.
+* New-type patter is used unless multiple fields are required.
+* All new-type objects will implement `.as_str()` to get original value.
 
-If type wraps more than one object fields will be named, otherwise new-type patter will be used.
+All objects are using base escaping rules wrappers:
 
-All new-type objects will implement `.as_str()` to get original value.
-All objects will implement `Display` to get escaped and perhaps quoted value that can be used in SQL statement.
-
-All objects are using base escaping rules:
 * `ObjectConcat` for table names, schemas, columns etc.
-* `QuotedData` for data values
-
- */
+* `QuotedDataConcat` for data values
+*/
 use itertools::Itertools;
 use std::fmt::{self, Display};
 use std::marker::PhantomData;
@@ -233,7 +230,7 @@ impl fmt::Display for Schema<'_> {
 
 /// Represents table name.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Table<'i>(Object<'i>);
+pub struct Table<'i>(pub Object<'i>);
 
 impl<'i> Table<'i> {
     pub fn new(table: impl Into<Object<'i>>) -> Table<'i> {
@@ -356,7 +353,7 @@ impl fmt::Display for Column<'_> {
 
 /// Represents table column name.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ColumnType<D: Dialect>(pub Object<'static>, PhantomData<D>);
+pub struct ColumnType<D: Dialect>(pub Object<'static>, pub PhantomData<D>);
 
 impl<D: Dialect> ColumnType<D> {
     pub fn new(column_type: impl Into<Object<'static>>) -> ColumnType<D> {
@@ -420,7 +417,7 @@ mod tests {
             &format!(
                 "SELECT {} FROM {} WHERE {} = {}",
                 Column("foo bar".into()),
-                SchemaTable::new("foo", "baz").with_postfix("_quix"),
+                SchemaTable { schema: "foo".into(), table: "baz".into()}.with_postfix("_quix"),
                 Column("blah".into()),
                 QuotedData("hello 'world' foo")
             )
